@@ -1,0 +1,319 @@
+import React, { useState, useEffect } from 'react';
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  Title,
+  Tooltip,
+  Legend,
+  TimeScale
+} from 'chart.js';
+import { Line } from 'react-chartjs-2';
+import 'chartjs-adapter-date-fns';
+
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  Title,
+  Tooltip,
+  Legend,
+  TimeScale
+);
+
+const COLORS = [
+  '#3b82f6', '#ef4444', '#22c55e', '#f59e0b', '#8b5cf6',
+  '#ec4899', '#06b6d4', '#84cc16', '#f97316', '#6366f1',
+  '#14b8a6', '#f43f5e', '#a855f7', '#0ea5e9', '#eab308'
+];
+
+function App() {
+  const [assets, setAssets] = useState([]);
+  const [selectedAssets, setSelectedAssets] = useState([]);
+  const [fundingData, setFundingData] = useState({});
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [days, setDays] = useState(30);
+  const [searchTerm, setSearchTerm] = useState('');
+
+  // Fetch available assets on mount
+  useEffect(() => {
+    fetchAssets();
+  }, []);
+
+  // Fetch funding data when selected assets or days change
+  useEffect(() => {
+    if (selectedAssets.length > 0) {
+      fetchFundingData();
+    }
+  }, [selectedAssets, days]);
+
+  const fetchAssets = async () => {
+    try {
+      const response = await fetch('/api/assets');
+      const data = await response.json();
+      setAssets(data);
+      // Pre-select BTC and ETH by default
+      const defaults = data.filter(a => ['BTC', 'ETH'].includes(a.name)).map(a => a.name);
+      setSelectedAssets(defaults);
+    } catch (err) {
+      setError('Failed to fetch assets');
+      console.error(err);
+    }
+  };
+
+  const fetchFundingData = async () => {
+    if (selectedAssets.length === 0) return;
+
+    setLoading(true);
+    setError(null);
+
+    try {
+      const response = await fetch('/api/funding/batch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ coins: selectedAssets, days })
+      });
+
+      const data = await response.json();
+      setFundingData(data);
+    } catch (err) {
+      setError('Failed to fetch funding data');
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const toggleAsset = (assetName) => {
+    setSelectedAssets(prev => {
+      if (prev.includes(assetName)) {
+        return prev.filter(a => a !== assetName);
+      } else {
+        return [...prev, assetName];
+      }
+    });
+  };
+
+  const filteredAssets = assets.filter(asset =>
+    asset.name.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  // Prepare chart data
+  const chartData = {
+    datasets: selectedAssets.map((coin, index) => {
+      const data = fundingData[coin] || [];
+      return {
+        label: coin,
+        data: data.map(d => ({
+          x: new Date(d.time),
+          y: d.fundingRate * 100 // Convert to percentage
+        })),
+        borderColor: COLORS[index % COLORS.length],
+        backgroundColor: COLORS[index % COLORS.length] + '20',
+        borderWidth: 2,
+        pointRadius: 0,
+        pointHoverRadius: 4,
+        tension: 0.1
+      };
+    })
+  };
+
+  const chartOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    interaction: {
+      mode: 'index',
+      intersect: false
+    },
+    plugins: {
+      legend: {
+        position: 'top',
+        labels: {
+          color: '#e5e7eb',
+          usePointStyle: true,
+          padding: 20
+        }
+      },
+      title: {
+        display: true,
+        text: `Funding Rates Over ${days} Days (Hourly)`,
+        color: '#f3f4f6',
+        font: {
+          size: 18,
+          weight: '600'
+        }
+      },
+      tooltip: {
+        backgroundColor: '#1f2937',
+        titleColor: '#f3f4f6',
+        bodyColor: '#d1d5db',
+        borderColor: '#374151',
+        borderWidth: 1,
+        callbacks: {
+          label: (context) => {
+            const value = context.parsed.y;
+            const annualized = value * 24 * 365;
+            return `${context.dataset.label}: ${value.toFixed(4)}% (${annualized.toFixed(2)}% APR)`;
+          }
+        }
+      }
+    },
+    scales: {
+      x: {
+        type: 'time',
+        time: {
+          unit: 'day',
+          displayFormats: {
+            day: 'MMM d'
+          }
+        },
+        grid: {
+          color: '#374151'
+        },
+        ticks: {
+          color: '#9ca3af'
+        }
+      },
+      y: {
+        title: {
+          display: true,
+          text: 'Funding Rate (%)',
+          color: '#9ca3af'
+        },
+        grid: {
+          color: '#374151'
+        },
+        ticks: {
+          color: '#9ca3af',
+          callback: (value) => value.toFixed(4) + '%'
+        }
+      }
+    }
+  };
+
+  return (
+    <div className="app">
+      <header className="header">
+        <h1>HyperFunding</h1>
+        <p>Track Hyperliquid Funding Rates</p>
+      </header>
+
+      <div className="main-content">
+        <aside className="sidebar">
+          <div className="sidebar-header">
+            <h2>Select Assets</h2>
+            <span className="selected-count">{selectedAssets.length} selected</span>
+          </div>
+
+          <input
+            type="text"
+            className="search-input"
+            placeholder="Search assets..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+
+          <div className="time-selector">
+            <label>Time Period</label>
+            <select value={days} onChange={(e) => setDays(Number(e.target.value))}>
+              <option value={7}>7 Days</option>
+              <option value={14}>14 Days</option>
+              <option value={30}>30 Days</option>
+            </select>
+          </div>
+
+          <div className="asset-list">
+            {filteredAssets.map(asset => (
+              <div
+                key={asset.name}
+                className={`asset-item ${selectedAssets.includes(asset.name) ? 'selected' : ''}`}
+                onClick={() => toggleAsset(asset.name)}
+              >
+                <div className="asset-info">
+                  <span className="asset-name">{asset.name}</span>
+                  <span className="asset-funding">
+                    {(parseFloat(asset.currentFunding) * 100).toFixed(4)}%
+                  </span>
+                </div>
+                <div className="asset-checkbox">
+                  {selectedAssets.includes(asset.name) && <span>✓</span>}
+                </div>
+              </div>
+            ))}
+          </div>
+        </aside>
+
+        <main className="chart-container">
+          {error && <div className="error-message">{error}</div>}
+
+          {loading && (
+            <div className="loading-overlay">
+              <div className="spinner"></div>
+              <p>Loading funding data...</p>
+            </div>
+          )}
+
+          {selectedAssets.length === 0 ? (
+            <div className="empty-state">
+              <h3>No Assets Selected</h3>
+              <p>Select one or more assets from the sidebar to view their funding rates.</p>
+            </div>
+          ) : (
+            <div className="chart-wrapper">
+              <Line data={chartData} options={chartOptions} />
+            </div>
+          )}
+
+          {selectedAssets.length > 0 && !loading && (
+            <div className="stats-grid">
+              {selectedAssets.map((coin, index) => {
+                const data = fundingData[coin] || [];
+                if (data.length === 0) return null;
+
+                const rates = data.map(d => d.fundingRate * 100);
+                const avg = rates.reduce((a, b) => a + b, 0) / rates.length;
+                const max = Math.max(...rates);
+                const min = Math.min(...rates);
+                const current = rates[rates.length - 1] || 0;
+
+                return (
+                  <div key={coin} className="stat-card" style={{ borderColor: COLORS[index % COLORS.length] }}>
+                    <h4>{coin}</h4>
+                    <div className="stat-row">
+                      <span>Current:</span>
+                      <span className={current >= 0 ? 'positive' : 'negative'}>
+                        {current.toFixed(4)}%
+                      </span>
+                    </div>
+                    <div className="stat-row">
+                      <span>Average:</span>
+                      <span>{avg.toFixed(4)}%</span>
+                    </div>
+                    <div className="stat-row">
+                      <span>Max:</span>
+                      <span className="positive">{max.toFixed(4)}%</span>
+                    </div>
+                    <div className="stat-row">
+                      <span>Min:</span>
+                      <span className="negative">{min.toFixed(4)}%</span>
+                    </div>
+                    <div className="stat-row">
+                      <span>APR (avg):</span>
+                      <span>{(avg * 24 * 365).toFixed(2)}%</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </main>
+      </div>
+    </div>
+  );
+}
+
+export default App;

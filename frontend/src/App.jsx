@@ -184,32 +184,31 @@ function App() {
         y: d.fundingRate * 100 * 24 * 365 // Annualized rate
       }));
 
-      const datasets = [{
-        label: coin,
-        data: rawData,
-        borderColor: COLORS[index % COLORS.length],
-        backgroundColor: COLORS[index % COLORS.length] + '20',
-        borderWidth: showSmoothed ? 1 : 2,
-        pointRadius: 0,
-        pointHoverRadius: 4,
-        tension: 0.1,
-        borderDash: showSmoothed ? [2, 2] : []
-      }];
-
-      if (showSmoothed && rawData.length > 0) {
-        datasets.push({
+      // If smoothed mode, only show the moving average
+      if (showSmoothed) {
+        return rawData.length > 0 ? [{
           label: `${coin} (24h avg)`,
           data: calculateMovingAverage(rawData, 24),
           borderColor: COLORS[index % COLORS.length],
           backgroundColor: 'transparent',
-          borderWidth: 3,
+          borderWidth: 2,
           pointRadius: 0,
           pointHoverRadius: 4,
           tension: 0.3
-        });
+        }] : [];
       }
 
-      return datasets;
+      // Otherwise show raw data
+      return [{
+        label: coin,
+        data: rawData,
+        borderColor: COLORS[index % COLORS.length],
+        backgroundColor: COLORS[index % COLORS.length] + '20',
+        borderWidth: 2,
+        pointRadius: 0,
+        pointHoverRadius: 4,
+        tension: 0.1
+      }];
     })
   };
 
@@ -314,6 +313,9 @@ function App() {
               <option value={7}>7 Days</option>
               <option value={14}>14 Days</option>
               <option value={30}>30 Days</option>
+              <option value={60}>60 Days</option>
+              <option value={90}>90 Days</option>
+              <option value={180}>180 Days</option>
             </select>
           </div>
 

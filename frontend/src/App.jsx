@@ -110,7 +110,7 @@ function App() {
         label: coin,
         data: data.map(d => ({
           x: new Date(d.time),
-          y: d.fundingRate * 100 // Convert to percentage
+          y: d.fundingRate * 100 * 24 * 365 // Annualized rate
         })),
         borderColor: COLORS[index % COLORS.length],
         backgroundColor: COLORS[index % COLORS.length] + '20',
@@ -140,7 +140,7 @@ function App() {
       },
       title: {
         display: true,
-        text: `Funding Rates Over ${days} Days (Hourly)`,
+        text: `Annualized Funding Rates - ${days} Days`,
         color: '#f3f4f6',
         font: {
           size: 18,
@@ -155,9 +155,9 @@ function App() {
         borderWidth: 1,
         callbacks: {
           label: (context) => {
-            const value = context.parsed.y;
-            const annualized = value * 24 * 365;
-            return `${context.dataset.label}: ${value.toFixed(4)}% (${annualized.toFixed(2)}% APR)`;
+            const annualized = context.parsed.y;
+            const hourly = annualized / (24 * 365);
+            return `${context.dataset.label}: ${annualized.toFixed(2)}% APR (${hourly.toFixed(4)}%/hr)`;
           }
         }
       }
@@ -181,7 +181,7 @@ function App() {
       y: {
         title: {
           display: true,
-          text: 'Funding Rate (%)',
+          text: 'Annualized Rate (% APR)',
           color: '#9ca3af'
         },
         grid: {
@@ -189,7 +189,7 @@ function App() {
         },
         ticks: {
           color: '#9ca3af',
-          callback: (value) => value.toFixed(4) + '%'
+          callback: (value) => value.toFixed(1) + '%'
         }
       }
     }

@@ -1,5 +1,46 @@
 const HYPERLIQUID_API = 'https://api.hyperliquid.xyz/info';
 
+// Fetch funding history with pagination for longer periods
+async function fetchHistory(coin, startTime, endTime) {
+  const CHUNK_DAYS = 20;
+  const CHUNK_MS = CHUNK_DAYS * 24 * 60 * 60 * 1000;
+
+  let allData = [];
+  let currentStart = startTime;
+
+  while (currentStart < endTime) {
+    const currentEnd = Math.min(currentStart + CHUNK_MS, endTime);
+
+    const response = await fetch(HYPERLIQUID_API, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        type: 'fundingHistory',
+        coin: coin,
+        startTime: currentStart,
+        endTime: currentEnd
+      })
+    });
+
+    const data = await response.json();
+
+    if (Array.isArray(data)) {
+      allData = allData.concat(data);
+    }
+
+    currentStart = currentEnd;
+  }
+
+  // Sort by time and remove duplicates
+  allData.sort((a, b) => a.time - b.time);
+  const seen = new Set();
+  return allData.filter(item => {
+    if (seen.has(item.time)) return false;
+    seen.add(item.time);
+    return true;
+  });
+}
+
 export default async function handler(req, res) {
   if (req.method !== 'GET') {
     return res.status(405).json({ error: 'Method not allowed' });
@@ -12,18 +53,7 @@ export default async function handler(req, res) {
     const endTime = Date.now();
     const startTime = endTime - (parseInt(days) * 24 * 60 * 60 * 1000);
 
-    const response = await fetch(HYPERLIQUID_API, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        type: 'fundingHistory',
-        coin: coin,
-        startTime: startTime,
-        endTime: endTime
-      })
-    });
-
-    const data = await response.json();
+    const data = await fetchHistory(coin, startTime, endTime);
 
     // Format the data for the frontend
     const formattedData = data.map(item => ({

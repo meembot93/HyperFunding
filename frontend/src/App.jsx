@@ -39,6 +39,8 @@ function App() {
   const [days, setDays] = useState(30);
   const [searchTerm, setSearchTerm] = useState('');
   const [showSmoothed, setShowSmoothed] = useState(false);
+  const [topPerformers, setTopPerformers] = useState([]);
+  const [loadingTop, setLoadingTop] = useState(false);
 
   // Fetch available assets on mount
   useEffect(() => {
@@ -60,9 +62,61 @@ function App() {
       // Pre-select BTC and ETH by default
       const defaults = data.filter(a => ['BTC', 'ETH'].includes(a.name)).map(a => a.name);
       setSelectedAssets(defaults);
+      // Fetch top performers
+      fetchTopPerformers(data);
     } catch (err) {
       setError('Failed to fetch assets');
       console.error(err);
+    }
+  };
+
+  const fetchTopPerformers = async (assetList) => {
+    setLoadingTop(true);
+    try {
+      // Filter assets with >= 1M open interest
+      const eligibleAssets = assetList.filter(a => {
+        const oi = parseFloat(a.openInterest) * parseFloat(a.markPrice);
+        return oi >= 1000000;
+      });
+
+      if (eligibleAssets.length === 0) {
+        setTopPerformers([]);
+        return;
+      }
+
+      // Fetch 30-day funding data for eligible assets
+      const response = await fetch('/api/funding/batch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ coins: eligibleAssets.map(a => a.name), days: 30 })
+      });
+
+      const fundingResults = await response.json();
+
+      // Calculate average funding rate for each asset
+      const rankings = eligibleAssets.map(asset => {
+        const data = fundingResults[asset.name] || [];
+        if (data.length === 0) return null;
+
+        const rates = data.map(d => d.fundingRate);
+        const avgRate = rates.reduce((a, b) => a + b, 0) / rates.length;
+        const avgAnnualized = avgRate * 100 * 24 * 365;
+        const oi = parseFloat(asset.openInterest) * parseFloat(asset.markPrice);
+
+        return {
+          name: asset.name,
+          avgRate: avgAnnualized,
+          openInterest: oi
+        };
+      }).filter(Boolean);
+
+      // Sort by average rate and take top 5
+      rankings.sort((a, b) => b.avgRate - a.avgRate);
+      setTopPerformers(rankings.slice(0, 5));
+    } catch (err) {
+      console.error('Failed to fetch top performers:', err);
+    } finally {
+      setLoadingTop(false);
     }
   };
 
@@ -289,6 +343,29 @@ function App() {
 
         <main className="chart-container">
           {error && <div className="error-message">{error}</div>}
+
+          <div className="top-performers">
+            <h3>Top 5 Funding Rates (30d avg, min $1M OI)</h3>
+            {loadingTop ? (
+              <p className="loading-text">Loading...</p>
+            ) : (
+              <div className="top-list">
+                {topPerformers.map((asset, index) => (
+                  <div
+                    key={asset.name}
+                    className="top-item"
+                    onClick={() => !selectedAssets.includes(asset.name) && toggleAsset(asset.name)}
+                  >
+                    <span className="top-rank">#{index + 1}</span>
+                    <span className="top-name">{asset.name}</span>
+                    <span className={`top-rate ${asset.avgRate >= 0 ? 'positive' : 'negative'}`}>
+                      {asset.avgRate.toFixed(1)}% APR
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
 
           {loading && (
             <div className="loading-overlay">

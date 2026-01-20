@@ -215,6 +215,66 @@ body {
   position: relative;
 }
 
+.top-performers {
+  background: #1e293b;
+  border-radius: 0.5rem;
+  padding: 0.75rem 1rem;
+  margin-bottom: 1rem;
+  border: 1px solid #334155;
+}
+
+.top-performers h3 {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #94a3b8;
+  margin-bottom: 0.5rem;
+}
+
+.top-performers .loading-text {
+  color: #64748b;
+  font-size: 0.875rem;
+}
+
+.top-list {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.top-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: #0f172a;
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.375rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  border: 1px solid #334155;
+}
+
+.top-item:hover {
+  border-color: #3b82f6;
+  background: #1e293b;
+}
+
+.top-rank {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #f59e0b;
+}
+
+.top-name {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #e2e8f0;
+}
+
+.top-rate {
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
 .chart-wrapper {
   height: 500px;
   min-height: 400px;

@@ -1,1 +1,67 @@
-Penis
+# HyperFunding
+
+A web application to track Hyperliquid funding rates over time with interactive charts.
+
+## Features
+
+- Track funding rates for any Hyperliquid perpetual asset
+- Select multiple assets to compare funding rates on the same chart
+- View data over 7, 14, or 30 day periods
+- Hourly funding rate data points
+- Statistics panel showing current, average, max, min rates and APR
+- Dark theme optimized for trading
+
+## Setup
+
+### Prerequisites
+
+- Node.js 18+ installed
+
+### Installation
+
+```bash
+# Install all dependencies
+npm run install:all
+```
+
+### Running the Application
+
+```bash
+# Start both backend and frontend in development mode
+npm run dev
+```
+
+Or run them separately:
+
+```bash
+# Terminal 1: Start backend (port 3001)
+npm run dev:backend
+
+# Terminal 2: Start frontend (port 3000)
+npm run dev:frontend
+```
+
+Then open http://localhost:3000 in your browser.
+
+## Usage
+
+1. **Select Assets**: Click on assets in the left sidebar to add/remove them from the chart
+2. **Search**: Use the search box to filter assets by name
+3. **Time Period**: Use the dropdown to change between 7, 14, or 30 day views
+4. **Hover**: Hover over the chart to see detailed funding rate information
+5. **Stats**: View statistics cards below the chart for each selected asset
+
+## API Endpoints
+
+The backend provides these endpoints:
+
+- `GET /api/assets` - Get all available assets with current funding rates
+- `GET /api/funding/:coin?days=30` - Get funding history for a single asset
+- `POST /api/funding/batch` - Get funding history for multiple assets
+  - Body: `{ "coins": ["BTC", "ETH"], "days": 30 }`
+
+## Tech Stack
+
+- **Frontend**: React, Chart.js, Vite
+- **Backend**: Node.js, Express
+- **Data Source**: Hyperliquid API

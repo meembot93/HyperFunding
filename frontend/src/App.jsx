@@ -256,16 +256,19 @@ function App() {
       x: {
         type: 'time',
         time: {
-          unit: 'day',
+          unit: days <= 14 ? 'day' : days <= 60 ? 'week' : 'month',
           displayFormats: {
-            day: 'MMM d'
+            day: 'MMM d',
+            week: 'MMM d',
+            month: 'MMM yyyy'
           }
         },
         grid: {
           color: '#374151'
         },
         ticks: {
-          color: '#9ca3af'
+          color: '#9ca3af',
+          maxTicksLimit: 12
         }
       },
       y: {

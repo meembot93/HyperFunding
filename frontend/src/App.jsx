@@ -38,6 +38,7 @@ function App() {
   const [error, setError] = useState(null);
   const [days, setDays] = useState(30);
   const [searchTerm, setSearchTerm] = useState('');
+  const [showSmoothed, setShowSmoothed] = useState(false);
 
   // Fetch available assets on mount
   useEffect(() => {
@@ -102,23 +103,51 @@ function App() {
     asset.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
+  // Calculate 24-hour moving average
+  const calculateMovingAverage = (data, windowSize = 24) => {
+    return data.map((point, index) => {
+      const start = Math.max(0, index - windowSize + 1);
+      const window = data.slice(start, index + 1);
+      const avg = window.reduce((sum, p) => sum + p.y, 0) / window.length;
+      return { x: point.x, y: avg };
+    });
+  };
+
   // Prepare chart data
   const chartData = {
-    datasets: selectedAssets.map((coin, index) => {
+    datasets: selectedAssets.flatMap((coin, index) => {
       const data = fundingData[coin] || [];
-      return {
+      const rawData = data.map(d => ({
+        x: new Date(d.time),
+        y: d.fundingRate * 100 * 24 * 365 // Annualized rate
+      }));
+
+      const datasets = [{
         label: coin,
-        data: data.map(d => ({
-          x: new Date(d.time),
-          y: d.fundingRate * 100 * 24 * 365 // Annualized rate
-        })),
+        data: rawData,
         borderColor: COLORS[index % COLORS.length],
         backgroundColor: COLORS[index % COLORS.length] + '20',
-        borderWidth: 2,
+        borderWidth: showSmoothed ? 1 : 2,
         pointRadius: 0,
         pointHoverRadius: 4,
-        tension: 0.1
-      };
+        tension: 0.1,
+        borderDash: showSmoothed ? [2, 2] : []
+      }];
+
+      if (showSmoothed && rawData.length > 0) {
+        datasets.push({
+          label: `${coin} (24h avg)`,
+          data: calculateMovingAverage(rawData, 24),
+          borderColor: COLORS[index % COLORS.length],
+          backgroundColor: 'transparent',
+          borderWidth: 3,
+          pointRadius: 0,
+          pointHoverRadius: 4,
+          tension: 0.3
+        });
+      }
+
+      return datasets;
     })
   };
 
@@ -224,6 +253,17 @@ function App() {
               <option value={14}>14 Days</option>
               <option value={30}>30 Days</option>
             </select>
+          </div>
+
+          <div className="smoothing-toggle">
+            <label className="toggle-label">
+              <input
+                type="checkbox"
+                checked={showSmoothed}
+                onChange={(e) => setShowSmoothed(e.target.checked)}
+              />
+              <span>24h Moving Average</span>
+            </label>
           </div>
 
           <div className="asset-list">

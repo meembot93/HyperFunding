@@ -73,11 +73,15 @@ function App() {
   const fetchTopPerformers = async (assetList) => {
     setLoadingTop(true);
     try {
-      // Filter assets with >= 1M open interest
-      const eligibleAssets = assetList.filter(a => {
-        const oi = parseFloat(a.openInterest) * parseFloat(a.markPrice);
-        return oi >= 1000000;
-      });
+      // Filter assets with >= 1M open interest (OI is in contracts, multiply by price for USD)
+      const eligibleAssets = assetList
+        .map(a => ({
+          ...a,
+          oiUsd: parseFloat(a.openInterest) * parseFloat(a.markPrice)
+        }))
+        .filter(a => a.oiUsd >= 1000000)
+        .sort((a, b) => b.oiUsd - a.oiUsd)
+        .slice(0, 30); // Limit to top 30 by OI to avoid timeout
 
       if (eligibleAssets.length === 0) {
         setTopPerformers([]);
@@ -91,6 +95,10 @@ function App() {
         body: JSON.stringify({ coins: eligibleAssets.map(a => a.name), days: 30 })
       });
 
+      if (!response.ok) {
+        throw new Error('Batch request failed');
+      }
+
       const fundingResults = await response.json();
 
       // Calculate average funding rate for each asset
@@ -101,12 +109,11 @@ function App() {
         const rates = data.map(d => d.fundingRate);
         const avgRate = rates.reduce((a, b) => a + b, 0) / rates.length;
         const avgAnnualized = avgRate * 100 * 24 * 365;
-        const oi = parseFloat(asset.openInterest) * parseFloat(asset.markPrice);
 
         return {
           name: asset.name,
           avgRate: avgAnnualized,
-          openInterest: oi
+          openInterest: asset.oiUsd
         };
       }).filter(Boolean);
 
@@ -115,6 +122,7 @@ function App() {
       setTopPerformers(rankings.slice(0, 5));
     } catch (err) {
       console.error('Failed to fetch top performers:', err);
+      setTopPerformers([]);
     } finally {
       setLoadingTop(false);
     }
